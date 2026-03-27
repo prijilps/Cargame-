@@ -1,0 +1,131 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #1a1a2e;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+#game-container {
+  position: relative;
+  width: 400px;
+  height: 600px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0, 200, 255, 0.3);
+}
+
+#gameCanvas {
+  display: block;
+  background: #2d2d44;
+}
+
+#ui-overlay {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#score-display,
+#highscore-display {
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  background: rgba(10, 10, 30, 0.88);
+  z-index: 10;
+  color: #fff;
+  text-align: center;
+  padding: 30px;
+}
+
+.screen h1 {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #00d4ff;
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+}
+
+.screen p {
+  font-size: 15px;
+  color: #aaa;
+  max-width: 280px;
+}
+
+.screen #final-score {
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+}
+
+#new-best {
+  color: #ffd700;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.controls-info {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+button {
+  margin-top: 8px;
+  padding: 14px 40px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  border: none;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #00d4ff, #0080ff);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 20px rgba(0, 130, 255, 0.4);
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(0, 130, 255, 0.6);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.hidden {
+  display: none !important;
+}

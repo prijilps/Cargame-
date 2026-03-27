@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Car Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="ui-overlay">
+      <div id="score-display">Score: <span id="score">0</span></div>
+      <div id="highscore-display">Best: <span id="highscore">0</span></div>
+    </div>
+    <div id="start-screen" class="screen">
+      <h1>CAR GAME</h1>
+      <p>Dodge traffic and survive as long as you can!</p>
+      <div class="controls-info">
+        <span>&#8592; &#8594; Arrow Keys or A/D to steer</span>
+      </div>
+      <button id="start-btn">START GAME</button>
+    </div>
+    <div id="game-over-screen" class="screen hidden">
+      <h1>GAME OVER</h1>
+      <p>Score: <span id="final-score">0</span></p>
+      <p id="new-best" class="hidden">New Best!</p>
+      <button id="restart-btn">PLAY AGAIN</button>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
