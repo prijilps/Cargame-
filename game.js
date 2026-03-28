@@ -380,14 +380,176 @@ function drawSkidMarks() {
   }
 }
 
+// ── F1 top-down player car ────────────────────────────────────────────────────
+function drawF1PlayerCar(px, py, wa) {
+  const cx = Math.round(px + CAR_W / 2);
+  const cy = Math.round(py + CAR_H / 2);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  // Car faces UP: nose at -y, rear at +y
+
+  const white   = '#f4f4f4';
+  const red     = '#cc001a';
+  const cyan    = '#00d4ff';
+  const dark    = '#001e30';
+  const tire    = '#181818';
+  const rim     = '#363636';
+  const cockpit = '#050f18';
+
+  function box(x, y, w, h, r) {
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, r ?? 2); ctx.fill();
+  }
+
+  // ── Rear wing ──────────────────────────────────────────────
+  ctx.fillStyle = red;
+  box(-27, 22, 54, 6, 1);             // upper plane
+  box(-28, 17, 5,  16, 1);            // left endplate
+  box( 23, 17, 5,  16, 1);            // right endplate
+  ctx.fillStyle = white;
+  box(-25, 18, 50,  7, 1);            // lower plane (wider, lighter)
+  ctx.fillStyle = red;
+  box(-25, 18, 50,  2, 0);            // leading edge stripe
+
+  // ── Rear tires ─────────────────────────────────────────────
+  for (const sx of [-1, 1]) {
+    ctx.save(); ctx.translate(sx * 22, 19);
+    ctx.fillStyle = tire;
+    box(-6.5, -10, 13, 20, 3);        // fat rear rubber
+    ctx.fillStyle = rim;
+    box(-4,   -6.5, 8, 13, 2);        // alloy rim
+    ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.stroke(); // rim ring
+    ctx.restore();
+  }
+
+  // ── Body drop shadow ───────────────────────────────────────
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.moveTo( 1, -32);
+  ctx.bezierCurveTo( 4, -24,  13, -17,  15,  -8);
+  ctx.bezierCurveTo( 18,  -1,  18,   7,  17,  15);
+  ctx.lineTo( 14, 30); ctx.lineTo(-12, 30); ctx.lineTo(-15, 15);
+  ctx.bezierCurveTo(-16,   7, -16,  -1, -13,  -8);
+  ctx.bezierCurveTo(-11, -17,  -2, -24,   1, -32);
+  ctx.closePath(); ctx.fill();
+
+  // ── White body silhouette ──────────────────────────────────
+  ctx.fillStyle = white;
+  ctx.beginPath();
+  ctx.moveTo( 0, -33);
+  ctx.bezierCurveTo( 2.5, -26,  11, -16,  13,  -8);
+  ctx.bezierCurveTo( 16,  -1,  17,   6,  15,  14);
+  ctx.lineTo( 13, 29); ctx.lineTo(-13, 29); ctx.lineTo(-15, 14);
+  ctx.bezierCurveTo(-17,   6, -16,  -1, -13,  -8);
+  ctx.bezierCurveTo(-11, -16,  -2.5, -26,  0, -33);
+  ctx.closePath(); ctx.fill();
+
+  // ── Red nose arrow (livery) ────────────────────────────────
+  ctx.fillStyle = red;
+  ctx.beginPath();
+  ctx.moveTo(0, -33); ctx.lineTo(7, -13); ctx.lineTo(-7, -13);
+  ctx.closePath(); ctx.fill();
+
+  // ── Red sidepod livery ─────────────────────────────────────
+  ctx.fillStyle = red;
+  // Left sidepod
+  ctx.beginPath();
+  ctx.moveTo(-13, 29); ctx.lineTo(-15, 14);
+  ctx.bezierCurveTo(-17, 5, -16, -1, -13, -5);
+  ctx.lineTo(-11, -5); ctx.lineTo(-11, 29);
+  ctx.closePath(); ctx.fill();
+  // Right sidepod
+  ctx.beginPath();
+  ctx.moveTo(13, 29); ctx.lineTo(15, 14);
+  ctx.bezierCurveTo(17, 5, 16, -1, 13, -5);
+  ctx.lineTo(11, -5); ctx.lineTo(11, 29);
+  ctx.closePath(); ctx.fill();
+
+  // ── Cyan identity stripe (player colour) ──────────────────
+  ctx.fillStyle = cyan;
+  ctx.globalAlpha = 0.4;
+  box(-2, -13, 4, 40);
+  ctx.globalAlpha = 1;
+
+  // ── Sidepod air intakes ────────────────────────────────────
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(-12, -1, 2.5, 5,  0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( 12, -1, 2.5, 5, -0.25, 0, Math.PI * 2); ctx.fill();
+
+  // ── Roll hoop / engine intake fin ─────────────────────────
+  ctx.fillStyle = dark;
+  box(-3, -16, 6, 9, 1);
+  ctx.fillStyle = red;
+  box(-2.5, -17.5, 5, 3, 1);
+
+  // ── Cockpit surround ──────────────────────────────────────
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.ellipse(0, 1, 9, 11.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = cockpit;
+  ctx.beginPath(); ctx.ellipse(0, 1, 7.5, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Seat bucket
+  ctx.fillStyle = '#08192a';
+  ctx.beginPath(); ctx.ellipse(0, 3, 5, 7.5, 0, 0, Math.PI * 2); ctx.fill();
+
+  // ── Helmet ────────────────────────────────────────────────
+  ctx.fillStyle = '#bb2200';
+  ctx.beginPath(); ctx.arc(0, -1.5, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ee4400';
+  ctx.beginPath(); ctx.arc(-0.6, -2.5, 2.5, 0, Math.PI * 2); ctx.fill();
+  // Visor
+  ctx.fillStyle = 'rgba(0, 210, 255, 0.75)';
+  ctx.beginPath(); ctx.ellipse(0.3, -1.2, 3, 1.8, -0.15, 0, Math.PI * 2); ctx.fill();
+
+  // ── Suspension wishbones ──────────────────────────────────
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(-10, -11); ctx.lineTo(-18, -21);   // FL upper
+  ctx.moveTo( 10, -11); ctx.lineTo( 18, -21);   // FR upper
+  ctx.moveTo(-13,   9); ctx.lineTo(-22, 14);    // RL
+  ctx.moveTo( 13,   9); ctx.lineTo( 22, 14);    // RR
+  ctx.stroke();
+
+  // ── Front tires (steerable) ───────────────────────────────
+  for (const sx of [-1, 1]) {
+    ctx.save(); ctx.translate(sx * 18, -21); ctx.rotate(wa || 0);
+    ctx.fillStyle = tire;
+    box(-5, -8.5, 10, 17, 3);          // smaller front rubber
+    ctx.fillStyle = rim;
+    box(-3,  -6,   6, 12, 2);          // rim
+    ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Front wing ────────────────────────────────────────────
+  // Endplates
+  ctx.fillStyle = red;
+  box(-28, -30,  5, 12, 1);
+  box( 23, -30,  5, 12, 1);
+  // Main lower plane (white)
+  ctx.fillStyle = white;
+  box(-27, -32, 54,  6, 1);
+  // Upper flap (red)
+  ctx.fillStyle = red;
+  box(-26, -35, 52,  4, 1);
+  // Nose box in centre
+  ctx.fillStyle = cyan;
+  ctx.globalAlpha = 0.65;
+  box(-8, -30, 16, 4, 1);
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function drawPlayer() {
-  drawCar(
-    Math.round(player.x), Math.round(player.y),
-    CAR_W, CAR_H,
-    { body: COLORS.playerBody, glass: COLORS.playerGlass, detail: COLORS.playerDetail },
-    true,
-    player.wheelAngle
-  );
+  drawF1PlayerCar(Math.round(player.x), Math.round(player.y), player.wheelAngle);
 }
 
 function drawEnemies() {
@@ -528,9 +690,5 @@ function loop(timestamp) {
 (function initDraw() {
   ctx.clearRect(0, 0, W, H);
   drawRoad();
-  drawCar(
-    W / 2 - CAR_W / 2, H - 120, CAR_W, CAR_H,
-    { body: COLORS.playerBody, glass: COLORS.playerGlass, detail: COLORS.playerDetail },
-    true
-  );
+  drawF1PlayerCar(W / 2 - CAR_W / 2, H - 120, 0);
 })();
