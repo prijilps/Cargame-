@@ -403,145 +403,142 @@ function drawF1PlayerCar(px, py, wa) {
 
   // ── Rear wing ──────────────────────────────────────────────
   ctx.fillStyle = red;
-  box(-27, 22, 54, 6, 1);             // upper plane
-  box(-28, 17, 5,  16, 1);            // left endplate
-  box( 23, 17, 5,  16, 1);            // right endplate
+  box(-21, 34, 42, 5, 1);             // upper plane
+  box(-22, 29, 4,  14, 1);            // left endplate
+  box( 18, 29, 4,  14, 1);            // right endplate
   ctx.fillStyle = white;
-  box(-25, 18, 50,  7, 1);            // lower plane (wider, lighter)
+  box(-19, 30, 38,  6, 1);            // lower plane
   ctx.fillStyle = red;
-  box(-25, 18, 50,  2, 0);            // leading edge stripe
+  box(-19, 30, 38,  2, 0);            // leading edge stripe
 
   // ── Rear tires ─────────────────────────────────────────────
   for (const sx of [-1, 1]) {
-    ctx.save(); ctx.translate(sx * 22, 19);
+    ctx.save(); ctx.translate(sx * 17, 27);
     ctx.fillStyle = tire;
-    box(-6.5, -10, 13, 20, 3);        // fat rear rubber
+    box(-5.5, -10, 11, 20, 3);        // fat rear rubber (narrower than before)
     ctx.fillStyle = rim;
-    box(-4,   -6.5, 8, 13, 2);        // alloy rim
+    box(-3.5,  -6.5, 7, 13, 2);       // alloy rim
     ctx.strokeStyle = 'rgba(90,90,90,0.5)';
     ctx.lineWidth = 0.6;
-    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.stroke(); // rim ring
+    ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
   // ── Body drop shadow ───────────────────────────────────────
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.beginPath();
-  ctx.moveTo( 1, -32);
-  ctx.bezierCurveTo( 4, -24,  13, -17,  15,  -8);
-  ctx.bezierCurveTo( 18,  -1,  18,   7,  17,  15);
-  ctx.lineTo( 14, 30); ctx.lineTo(-12, 30); ctx.lineTo(-15, 15);
-  ctx.bezierCurveTo(-16,   7, -16,  -1, -13,  -8);
-  ctx.bezierCurveTo(-11, -17,  -2, -24,   1, -32);
+  ctx.moveTo( 1, -41);
+  ctx.bezierCurveTo( 3, -32,  9, -22,  10, -11);
+  ctx.bezierCurveTo( 13,  -3,  13,   7,  12,  18);
+  ctx.lineTo( 10, 39); ctx.lineTo(-8, 39); ctx.lineTo(-10, 18);
+  ctx.bezierCurveTo(-11,   7, -11,  -3,  -8, -11);
+  ctx.bezierCurveTo( -7, -22, -1, -32,   1, -41);
   ctx.closePath(); ctx.fill();
 
   // ── White body silhouette ──────────────────────────────────
   ctx.fillStyle = white;
   ctx.beginPath();
-  ctx.moveTo( 0, -33);
-  ctx.bezierCurveTo( 2.5, -26,  11, -16,  13,  -8);
-  ctx.bezierCurveTo( 16,  -1,  17,   6,  15,  14);
-  ctx.lineTo( 13, 29); ctx.lineTo(-13, 29); ctx.lineTo(-15, 14);
-  ctx.bezierCurveTo(-17,   6, -16,  -1, -13,  -8);
-  ctx.bezierCurveTo(-11, -16,  -2.5, -26,  0, -33);
+  ctx.moveTo( 0, -42);
+  ctx.bezierCurveTo( 2, -34,  8, -22,  9, -11);
+  ctx.bezierCurveTo( 11,  -3,  12,   6,  10,  18);
+  ctx.lineTo( 9, 38); ctx.lineTo(-9, 38); ctx.lineTo(-10, 18);
+  ctx.bezierCurveTo(-12,   6, -11,  -3,  -9, -11);
+  ctx.bezierCurveTo( -8, -22,  -2, -34,   0, -42);
   ctx.closePath(); ctx.fill();
 
   // ── Red nose arrow (livery) ────────────────────────────────
   ctx.fillStyle = red;
   ctx.beginPath();
-  ctx.moveTo(0, -33); ctx.lineTo(7, -13); ctx.lineTo(-7, -13);
+  ctx.moveTo(0, -42); ctx.lineTo(5, -17); ctx.lineTo(-5, -17);
   ctx.closePath(); ctx.fill();
 
   // ── Red sidepod livery ─────────────────────────────────────
   ctx.fillStyle = red;
   // Left sidepod
   ctx.beginPath();
-  ctx.moveTo(-13, 29); ctx.lineTo(-15, 14);
-  ctx.bezierCurveTo(-17, 5, -16, -1, -13, -5);
-  ctx.lineTo(-11, -5); ctx.lineTo(-11, 29);
+  ctx.moveTo(-9, 38); ctx.lineTo(-10, 18);
+  ctx.bezierCurveTo(-12, 7, -11, -2, -9, -6);
+  ctx.lineTo(-7, -6); ctx.lineTo(-7, 38);
   ctx.closePath(); ctx.fill();
   // Right sidepod
   ctx.beginPath();
-  ctx.moveTo(13, 29); ctx.lineTo(15, 14);
-  ctx.bezierCurveTo(17, 5, 16, -1, 13, -5);
-  ctx.lineTo(11, -5); ctx.lineTo(11, 29);
+  ctx.moveTo(9, 38); ctx.lineTo(10, 18);
+  ctx.bezierCurveTo(12, 7, 11, -2, 9, -6);
+  ctx.lineTo(7, -6); ctx.lineTo(7, 38);
   ctx.closePath(); ctx.fill();
 
   // ── Cyan identity stripe (player colour) ──────────────────
   ctx.fillStyle = cyan;
   ctx.globalAlpha = 0.4;
-  box(-2, -13, 4, 40);
+  box(-1.5, -17, 3, 53);
   ctx.globalAlpha = 1;
 
   // ── Sidepod air intakes ────────────────────────────────────
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.beginPath(); ctx.ellipse(-12, -1, 2.5, 5,  0.25, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse( 12, -1, 2.5, 5, -0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-8.5, -1, 2, 4.5,  0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( 8.5, -1, 2, 4.5, -0.2, 0, Math.PI * 2); ctx.fill();
 
   // ── Roll hoop / engine intake fin ─────────────────────────
   ctx.fillStyle = dark;
-  box(-3, -16, 6, 9, 1);
+  box(-2.5, -20, 5, 9, 1);
   ctx.fillStyle = red;
-  box(-2.5, -17.5, 5, 3, 1);
+  box(-2, -21.5, 4, 3, 1);
 
   // ── Cockpit surround ──────────────────────────────────────
   ctx.fillStyle = dark;
-  ctx.beginPath(); ctx.ellipse(0, 1, 9, 11.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 2, 7, 11, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = cockpit;
-  ctx.beginPath(); ctx.ellipse(0, 1, 7.5, 10, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 2, 5.5, 9.5, 0, 0, Math.PI * 2); ctx.fill();
 
   // Seat bucket
   ctx.fillStyle = '#08192a';
-  ctx.beginPath(); ctx.ellipse(0, 3, 5, 7.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 4, 3.5, 7, 0, 0, Math.PI * 2); ctx.fill();
 
   // ── Helmet ────────────────────────────────────────────────
   ctx.fillStyle = '#bb2200';
-  ctx.beginPath(); ctx.arc(0, -1.5, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -1.5, 4, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ee4400';
-  ctx.beginPath(); ctx.arc(-0.6, -2.5, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-0.5, -2.3, 2.2, 0, Math.PI * 2); ctx.fill();
   // Visor
   ctx.fillStyle = 'rgba(0, 210, 255, 0.75)';
-  ctx.beginPath(); ctx.ellipse(0.3, -1.2, 3, 1.8, -0.15, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0.2, -1, 2.6, 1.5, -0.15, 0, Math.PI * 2); ctx.fill();
 
   // ── Suspension wishbones ──────────────────────────────────
   ctx.strokeStyle = 'rgba(0,0,0,0.5)';
   ctx.lineWidth = 1.2;
   ctx.setLineDash([]);
   ctx.beginPath();
-  ctx.moveTo(-10, -11); ctx.lineTo(-18, -21);   // FL upper
-  ctx.moveTo( 10, -11); ctx.lineTo( 18, -21);   // FR upper
-  ctx.moveTo(-13,   9); ctx.lineTo(-22, 14);    // RL
-  ctx.moveTo( 13,   9); ctx.lineTo( 22, 14);    // RR
+  ctx.moveTo(-7, -14); ctx.lineTo(-14, -26);   // FL
+  ctx.moveTo( 7, -14); ctx.lineTo( 14, -26);   // FR
+  ctx.moveTo(-9,  12); ctx.lineTo(-17, 20);    // RL
+  ctx.moveTo( 9,  12); ctx.lineTo( 17, 20);    // RR
   ctx.stroke();
 
   // ── Front tires (steerable) ───────────────────────────────
   for (const sx of [-1, 1]) {
-    ctx.save(); ctx.translate(sx * 18, -21); ctx.rotate(wa || 0);
+    ctx.save(); ctx.translate(sx * 14, -26); ctx.rotate(wa || 0);
     ctx.fillStyle = tire;
-    box(-5, -8.5, 10, 17, 3);          // smaller front rubber
+    box(-4.5, -8, 9, 16, 3);           // narrower front rubber
     ctx.fillStyle = rim;
-    box(-3,  -6,   6, 12, 2);          // rim
+    box(-2.5, -5.5, 5, 11, 2);
     ctx.strokeStyle = 'rgba(90,90,90,0.5)';
     ctx.lineWidth = 0.6;
-    ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
   // ── Front wing ────────────────────────────────────────────
-  // Endplates
   ctx.fillStyle = red;
-  box(-28, -30,  5, 12, 1);
-  box( 23, -30,  5, 12, 1);
-  // Main lower plane (white)
+  box(-22, -42,  4, 12, 1);           // left endplate
+  box( 18, -42,  4, 12, 1);           // right endplate
   ctx.fillStyle = white;
-  box(-27, -32, 54,  6, 1);
-  // Upper flap (red)
+  box(-21, -43, 42,  5, 1);           // main lower plane
   ctx.fillStyle = red;
-  box(-26, -35, 52,  4, 1);
+  box(-20, -46, 40,  4, 1);           // upper flap
   // Nose box in centre
   ctx.fillStyle = cyan;
   ctx.globalAlpha = 0.65;
-  box(-8, -30, 16, 4, 1);
+  box(-6, -42, 12, 4, 1);
   ctx.globalAlpha = 1;
 
   ctx.restore();
