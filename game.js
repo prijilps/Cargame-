@@ -177,7 +177,11 @@ const player = {
   y: H - 120,
   vx: 0,
   speed: 4.5,
+  wheelAngle: 0,  // current front-wheel steer angle (radians)
 };
+
+// Skid marks: { x, y, alpha }
+const skidMarks = [];
 
 // Road markings
 const stripes = [];
@@ -225,8 +229,10 @@ function startGame() {
   frameCount = 0;
   spawnInterval = 90;
   enemies.length = 0;
+  skidMarks.length = 0;
   player.x = W / 2 - CAR_W / 2;
   player.vx = 0;
+  player.wheelAngle = 0;
 
   // Reset stripes
   for (let i = 0; i < stripes.length; i++) {
@@ -298,10 +304,31 @@ function drawRoad() {
   ctx.setLineDash([]);
 }
 
-function drawCar(x, y, w, h, colors, isPlayer) {
-  const r = 6;
+// Draw a single wheel centred at (cx, cy), rotated by angle
+function drawWheel(cx, cy, ww, wh, angle) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.fillRect(-ww / 2, -wh / 2, ww, wh);
+  ctx.restore();
+}
 
-  // Body
+function drawCar(x, y, w, h, colors, isPlayer, wheelAngle) {
+  const r = 6;
+  const ww = 8, wh = 14;
+  // Wheel centre positions (relative to car origin)
+  const frontY  = y + 10 + wh / 2;   // front axle centre
+  const rearY   = y + h - 10 - wh / 2; // rear axle centre
+  const leftX   = x - ww / 2 + 2;
+  const rightX  = x + w - 2 + ww / 2;
+  const steer   = isPlayer ? (wheelAngle || 0) : 0;
+
+  // ── Rear wheels (straight) ──
+  ctx.fillStyle = COLORS.playerWheel;
+  drawWheel(leftX,  rearY, ww, wh, 0);
+  drawWheel(rightX, rearY, ww, wh, 0);
+
+  // ── Body ──
   ctx.fillStyle = colors.body;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
@@ -311,7 +338,7 @@ function drawCar(x, y, w, h, colors, isPlayer) {
   ctx.fillStyle = colors.detail;
   ctx.fillRect(x + 4, y + h * 0.35, w - 8, 4);
 
-  // Windshield (top for enemy, bottom for player since player faces down)
+  // Windshield
   ctx.fillStyle = colors.glass;
   if (isPlayer) {
     ctx.beginPath();
@@ -323,37 +350,33 @@ function drawCar(x, y, w, h, colors, isPlayer) {
     ctx.fill();
   }
 
-  // Wheels
+  // ── Front wheels (steered) drawn on top of body edges ──
   ctx.fillStyle = COLORS.playerWheel;
-  const ww = 8, wh = 14;
-  // Front-left
-  ctx.fillRect(x - ww + 2, y + 10, ww, wh);
-  // Front-right
-  ctx.fillRect(x + w - 2, y + 10, ww, wh);
-  // Rear-left
-  ctx.fillRect(x - ww + 2, y + h - 10 - wh, ww, wh);
-  // Rear-right
-  ctx.fillRect(x + w - 2, y + h - 10 - wh, ww, wh);
+  drawWheel(leftX,  frontY, ww, wh, steer);
+  drawWheel(rightX, frontY, ww, wh, steer);
 
   // Headlights / taillights
   if (isPlayer) {
-    // Headlights (top of player car)
     ctx.fillStyle = '#ffffaa';
     ctx.fillRect(x + 4, y + 4, 8, 5);
     ctx.fillRect(x + w - 12, y + 4, 8, 5);
-    // Taillights (bottom of player)
     ctx.fillStyle = '#ff4444';
     ctx.fillRect(x + 4, y + h - 8, 8, 5);
     ctx.fillRect(x + w - 12, y + h - 8, 8, 5);
   } else {
-    // Headlights at bottom of enemy (facing down)
     ctx.fillStyle = '#ffffaa';
     ctx.fillRect(x + 4, y + h - 9, 8, 5);
     ctx.fillRect(x + w - 12, y + h - 9, 8, 5);
-    // Taillights at top
     ctx.fillStyle = '#ff4444';
     ctx.fillRect(x + 4, y + 4, 8, 5);
     ctx.fillRect(x + w - 12, y + 4, 8, 5);
+  }
+}
+
+function drawSkidMarks() {
+  for (const m of skidMarks) {
+    ctx.fillStyle = `rgba(20, 15, 5, ${m.alpha})`;
+    ctx.fillRect(m.x - 2, m.y - 4, 4, 8);
   }
 }
 
@@ -362,7 +385,8 @@ function drawPlayer() {
     Math.round(player.x), Math.round(player.y),
     CAR_W, CAR_H,
     { body: COLORS.playerBody, glass: COLORS.playerGlass, detail: COLORS.playerDetail },
-    true
+    true,
+    player.wheelAngle
   );
 }
 
@@ -466,6 +490,23 @@ function loop(timestamp) {
   player.x += player.vx;
   player.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, player.x));
 
+  // Smooth wheel steer angle (max ±0.38 rad ≈ 22°)
+  const targetAngle = Math.max(-0.38, Math.min(0.38, player.vx / player.speed * 0.38));
+  player.wheelAngle += (targetAngle - player.wheelAngle) * 0.18;
+
+  // Skid marks at rear wheels when turning
+  if (Math.abs(player.vx) > 1.4 && frameCount % 2 === 0) {
+    const rearY = player.y + CAR_H - 17;
+    skidMarks.push({ x: player.x - 2,          y: rearY, alpha: 0.55 });
+    skidMarks.push({ x: player.x + CAR_W + 2,  y: rearY, alpha: 0.55 });
+  }
+
+  // Fade & cull skid marks
+  for (let i = skidMarks.length - 1; i >= 0; i--) {
+    skidMarks[i].alpha -= 0.014;
+    if (skidMarks[i].alpha <= 0) skidMarks.splice(i, 1);
+  }
+
   // Collision
   if (checkCollision()) {
     gameOver();
@@ -475,6 +516,7 @@ function loop(timestamp) {
   // Draw
   ctx.clearRect(0, 0, W, H);
   drawRoad();
+  drawSkidMarks();
   drawEnemies();
   drawPlayer();
   drawScore();
