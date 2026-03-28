@@ -1,6 +1,132 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// ─── Audio Engine ────────────────────────────────────────────────────────────
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function makeDistortionCurve(amount) {
+  const n = 256, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+  }
+  return curve;
+}
+
+// Player engine hum
+let engineOsc = null, engineGain = null;
+
+function startEngineSound() {
+  const ac = getAudio();
+  if (engineOsc) return;
+
+  engineOsc = ac.createOscillator();
+  engineOsc.type = 'sawtooth';
+  engineOsc.frequency.setValueAtTime(80, ac.currentTime);
+
+  const dist = ac.createWaveShaper();
+  dist.curve = makeDistortionCurve(60);
+
+  engineGain = ac.createGain();
+  engineGain.gain.setValueAtTime(0.07, ac.currentTime);
+
+  engineOsc.connect(dist);
+  dist.connect(engineGain);
+  engineGain.connect(ac.destination);
+  engineOsc.start();
+}
+
+function updateEngineSound(spd) {
+  if (!engineOsc || !audioCtx) return;
+  const freq = 70 + spd * 18;
+  engineOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.15);
+}
+
+function stopEngineSound() {
+  if (!engineGain || !audioCtx) return;
+  engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+  setTimeout(() => {
+    try { engineOsc && engineOsc.stop(); } catch (_) {}
+    engineOsc = null;
+    engineGain = null;
+  }, 400);
+}
+
+// Whoosh when an enemy car passes the player
+function playPassSound() {
+  const ac = getAudio();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  const filter = ac.createBiquadFilter();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(500, ac.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(120, ac.currentTime + 0.25);
+
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(600, ac.currentTime);
+  filter.Q.value = 1.5;
+
+  gain.gain.setValueAtTime(0.18, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.28);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ac.destination);
+  osc.start();
+  osc.stop(ac.currentTime + 0.3);
+}
+
+// Crash on collision
+function playCrashSound() {
+  const ac = getAudio();
+
+  // Noise burst
+  const bufLen = Math.floor(ac.sampleRate * 0.6);
+  const buf = ac.createBuffer(1, bufLen, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.12));
+  }
+  const noise = ac.createBufferSource();
+  noise.buffer = buf;
+
+  const nFilter = ac.createBiquadFilter();
+  nFilter.type = 'lowpass';
+  nFilter.frequency.setValueAtTime(900, ac.currentTime);
+  nFilter.frequency.exponentialRampToValueAtTime(150, ac.currentTime + 0.3);
+
+  const nGain = ac.createGain();
+  nGain.gain.setValueAtTime(0.6, ac.currentTime);
+  nGain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.55);
+
+  noise.connect(nFilter);
+  nFilter.connect(nGain);
+  nGain.connect(ac.destination);
+  noise.start();
+
+  // Low thud
+  const boom = ac.createOscillator();
+  boom.type = 'sine';
+  boom.frequency.setValueAtTime(110, ac.currentTime);
+  boom.frequency.exponentialRampToValueAtTime(28, ac.currentTime + 0.35);
+
+  const bGain = ac.createGain();
+  bGain.gain.setValueAtTime(0.5, ac.currentTime);
+  bGain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.4);
+
+  boom.connect(bGain);
+  bGain.connect(ac.destination);
+  boom.start();
+  boom.stop(ac.currentTime + 0.4);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const W = canvas.width;
 const H = canvas.height;
 
@@ -112,6 +238,7 @@ function startGame() {
   document.getElementById('score').textContent = '0';
 
   state = 'playing';
+  startEngineSound();
   requestAnimationFrame(loop);
 }
 
@@ -130,6 +257,7 @@ function spawnEnemy() {
     lane,
     color: colorSet,
     speed: speed * (0.7 + Math.random() * 0.6),
+    passed: false,
   });
 }
 
@@ -270,6 +398,8 @@ function checkCollision() {
 
 function gameOver() {
   state = 'dead';
+  stopEngineSound();
+  playCrashSound();
   const newBest = score > highscore;
   if (newBest) {
     highscore = score;
@@ -311,10 +441,17 @@ function loop(timestamp) {
   // Update enemies
   for (let i = enemies.length - 1; i >= 0; i--) {
     enemies[i].y += enemies[i].speed * dt;
+    // Whoosh when enemy passes player
+    if (!enemies[i].passed && enemies[i].y > player.y + CAR_H) {
+      enemies[i].passed = true;
+      playPassSound();
+    }
     if (enemies[i].y > H + CAR_H) {
       enemies.splice(i, 1);
     }
   }
+
+  updateEngineSound(speed);
 
   // Player input
   const moveSpeed = player.speed * dt;
