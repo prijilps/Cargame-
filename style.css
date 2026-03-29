@@ -52,14 +52,23 @@ body {
 }
 
 #race-hud {
-  background: rgba(0, 0, 0, 0.6);
-  color: #ffd700;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ccc;
   padding: 6px 14px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#race-pos {
+  color: #ffd700;
+  font-size: 16px;
   letter-spacing: 1px;
-  border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
 .screen {

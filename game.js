@@ -193,6 +193,7 @@ const TOTAL_OPPONENTS = 9;
 let raceStartTime  = 0;
 let raceTimeLeft   = RACE_DURATION;
 let racePosition   = 10;
+let playerDistance = 0;       // total distance player has travelled
 let finishLineY    = -9999;   // screen Y of the finish line
 let finishActive   = false;
 let raceOver       = false;
@@ -263,13 +264,14 @@ function startGame() {
   player.braking = false;
 
   // Race reset
-  raceStartTime = performance.now();
-  raceTimeLeft  = RACE_DURATION;
-  racePosition  = 10;
-  finishLineY   = -9999;
-  finishActive  = false;
-  raceOver      = false;
-  victoryFrame  = 0;
+  raceStartTime  = performance.now();
+  raceTimeLeft   = RACE_DURATION;
+  racePosition   = 10;
+  playerDistance = 0;
+  finishLineY    = -9999;
+  finishActive   = false;
+  raceOver       = false;
+  victoryFrame   = 0;
 
   // Spawn 9 opponents at staggered positions ahead of player
   const grid = [
@@ -283,9 +285,10 @@ function startGame() {
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
-      speedMult:      0.88 + Math.random() * 0.4,  // rival pace relative to road speed
-      worldSpeed:     0,   // computed each frame as speed * speedMult
-      effectiveSpeed: 0,   // braked/boosted version of worldSpeed
+      speedMult:      0.88 + Math.random() * 0.4,
+      worldSpeed:     0,
+      effectiveSpeed: 0,
+      distance:       gap,  // head-start distance matching spawn gap
       wheelAngle: 0, passed: false,
       shiftCooldown: 60 + Math.random() * 80,
     });
@@ -697,6 +700,9 @@ function loop(timestamp) {
 
   // No auto-spawn — fixed 9-car field for the race
 
+  // Accumulate player race distance
+  playerDistance += speed * player.throttle * dt;
+
   // Update road stripes — throttle makes road rush past faster / slower
   for (const s of stripes) {
     s.y += speed * player.throttle * dt;
@@ -800,6 +806,9 @@ function loop(timestamp) {
     // 5. Move along track — screen speed = player road − rival world speed
     e.y += (speed * player.throttle - e.effectiveSpeed) * dt;
 
+    // Accumulate rival's absolute race distance
+    e.distance += e.effectiveSpeed * dt;
+
     // 6. Whoosh when rival passes player
     if (!e.passed && e.y > player.y + CAR_H) {
       e.passed = true;
@@ -830,10 +839,10 @@ function loop(timestamp) {
     }
   }
 
-  // Race position = 1 + number of rivals still ahead of player
-  racePosition = 1 + enemies.filter(e => e.y < player.y).length;
+  // Race position = 1 + rivals who have travelled more distance than player
+  racePosition = 1 + enemies.filter(e => e.distance > playerDistance).length;
   racePosition = Math.max(1, Math.min(10, racePosition));
-  document.getElementById('race-pos').textContent = `P${racePosition}`;
+  document.getElementById('race-pos').textContent = `P${racePosition}/10`;
 
   updateEngineSound(speed * player.throttle);
 
