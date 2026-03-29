@@ -561,23 +561,30 @@ function drawScore() {
 }
 
 function checkCollision() {
-  // F1 car body: center = (player.x + 18, player.y + 30)
-  // Body spans cx ± 9 wide, cy - 40 to cy + 38 tall (no wings)
   const cx = player.x + CAR_W / 2;
   const cy = player.y + CAR_H / 2;
-  const px = cx - 9;
-  const py = cy - 40;
-  const pw = 18;
-  const ph = 78;
+
+  // Three hitboxes matching the actual F1 car shape:
+  //  1. Main body  — narrow, full nose-to-rear length
+  //  2. Front wing — wide, shallow (at nose)
+  //  3. Rear wing  — wide, shallow (at tail)
+  const hitboxes = [
+    { x: cx - 9,  y: cy - 40, w: 18, h: 78 },
+    { x: cx - 21, y: cy - 46, w: 42, h: 8  },
+    { x: cx - 21, y: cy + 29, w: 42, h: 9  },
+  ];
 
   for (const e of enemies) {
-    const ex = e.x + 4;
-    const ey = e.y + 8;
-    const ew = CAR_W - 8;
-    const eh = CAR_H - 12;
+    const ex = e.x + 2;
+    const ey = e.y + 6;
+    const ew = CAR_W - 4;
+    const eh = CAR_H - 8;
 
-    if (px < ex + ew && px + pw > ex && py < ey + eh && py + ph > ey) {
-      return true;
+    for (const hb of hitboxes) {
+      if (hb.x < ex + ew && hb.x + hb.w > ex &&
+          hb.y < ey + eh && hb.y + hb.h > ey) {
+        return true;
+      }
     }
   }
   return false;
