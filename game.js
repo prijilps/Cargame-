@@ -561,10 +561,14 @@ function drawScore() {
 }
 
 function checkCollision() {
-  const px = player.x + 4;
-  const py = player.y + 8;
-  const pw = CAR_W - 8;
-  const ph = CAR_H - 12;
+  // F1 car body: center = (player.x + 18, player.y + 30)
+  // Body spans cx ± 9 wide, cy - 40 to cy + 38 tall (no wings)
+  const cx = player.x + CAR_W / 2;
+  const cy = player.y + CAR_H / 2;
+  const px = cx - 9;
+  const py = cy - 40;
+  const pw = 18;
+  const ph = 78;
 
   for (const e of enemies) {
     const ex = e.x + 4;
@@ -654,10 +658,11 @@ function loop(timestamp) {
   player.wheelAngle += (targetAngle - player.wheelAngle) * 0.18;
 
   // Skid marks at rear wheels when turning
+  // Rear tires are at cx ± 17, cy + 27 in F1 car local space
   if (Math.abs(player.vx) > 1.4 && frameCount % 2 === 0) {
-    const rearY = player.y + CAR_H - 17;
-    skidMarks.push({ x: player.x - 2,          y: rearY, alpha: 0.55 });
-    skidMarks.push({ x: player.x + CAR_W + 2,  y: rearY, alpha: 0.55 });
+    const rearY = player.y + CAR_H / 2 + 27;
+    skidMarks.push({ x: player.x + CAR_W / 2 - 17, y: rearY, alpha: 0.55 });
+    skidMarks.push({ x: player.x + CAR_W / 2 + 17, y: rearY, alpha: 0.55 });
   }
 
   // Fade & cull skid marks
