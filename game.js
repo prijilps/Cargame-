@@ -131,8 +131,8 @@ const W = canvas.width;
 const H = canvas.height;
 
 // Road layout
-const ROAD_LEFT = 60;
-const ROAD_RIGHT = 340;
+const ROAD_LEFT = 85;
+const ROAD_RIGHT = 315;
 const ROAD_WIDTH = ROAD_RIGHT - ROAD_LEFT;
 const LANE_COUNT = 3;
 const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
@@ -661,22 +661,26 @@ function loop(timestamp) {
   player.x += player.vx;
   player.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, player.x));
 
-  // Smooth wheel steer angle (max ±0.38 rad ≈ 22°)
-  const targetAngle = Math.max(-0.38, Math.min(0.38, player.vx / player.speed * 0.38));
-  player.wheelAngle += (targetAngle - player.wheelAngle) * 0.18;
+  // Smooth wheel steer angle (max ±0.52 rad ≈ 30°) — snappier so it's clearly visible
+  const targetAngle = Math.max(-0.52, Math.min(0.52, player.vx / player.speed * 0.52));
+  player.wheelAngle += (targetAngle - player.wheelAngle) * 0.28;
 
-  // Drag marks under front tires while turning
-  // Front tires are at cx ± 14, cy - 26 in F1 car local space
+  // Drag marks under front tires while turning.
+  // Marks are stamped at tire position and scroll downward with the road
+  // so they look embedded in the tarmac behind the car.
   if (Math.abs(player.vx) > 1.4 && frameCount % 2 === 0) {
     const frontY = player.y + CAR_H / 2 - 26;
-    skidMarks.push({ x: player.x + CAR_W / 2 - 14, y: frontY, alpha: 0.6 });
-    skidMarks.push({ x: player.x + CAR_W / 2 + 14, y: frontY, alpha: 0.6 });
+    const lx = player.x + CAR_W / 2 - 14;
+    const rx = player.x + CAR_W / 2 + 14;
+    skidMarks.push({ x: lx, y: frontY, vy: speed, alpha: 0.65 });
+    skidMarks.push({ x: rx, y: frontY, vy: speed, alpha: 0.65 });
   }
 
-  // Fade & cull skid marks
+  // Scroll & fade marks — vy matches road speed so marks stay on the tarmac
   for (let i = skidMarks.length - 1; i >= 0; i--) {
-    skidMarks[i].alpha -= 0.014;
-    if (skidMarks[i].alpha <= 0) skidMarks.splice(i, 1);
+    skidMarks[i].y     += skidMarks[i].vy * dt;
+    skidMarks[i].alpha -= 0.012;
+    if (skidMarks[i].alpha <= 0 || skidMarks[i].y > H + 20) skidMarks.splice(i, 1);
   }
 
   // Collision
