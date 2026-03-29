@@ -179,7 +179,9 @@ const player = {
   y: H - 120,
   vx: 0,
   speed: 4.5,
-  wheelAngle: 0,  // current front-wheel steer angle (radians)
+  wheelAngle: 0,
+  throttle: 1.0,   // 0.3 (braking) … 1.0 (cruise) … 2.2 (boost)
+  braking: false,
 };
 
 // Skid marks: { x, y, alpha }
@@ -235,6 +237,8 @@ function startGame() {
   player.x = W / 2 - CAR_W / 2;
   player.vx = 0;
   player.wheelAngle = 0;
+  player.throttle = 1.0;
+  player.braking = false;
 
   // Reset stripes
   for (let i = 0; i < stripes.length; i++) {
@@ -538,8 +542,31 @@ function drawF1EnemyCar(px, py, wa, colors) {
   ctx.restore();
 }
 
+function drawBrakeLights(px, py) {
+  const cx = px + CAR_W / 2;
+  const cy = py + CAR_H / 2;
+  // Pulse: gentle sine wave so light throbs while braking
+  const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.45);
+
+  ctx.save();
+  ctx.shadowColor = '#ff1100';
+  ctx.shadowBlur  = 20 * pulse;
+
+  // Central F1 brake light on rear wing
+  ctx.fillStyle = `rgba(255, 20, 0, ${pulse})`;
+  ctx.beginPath(); ctx.ellipse(cx, cy + 36, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Two smaller wing-tip lights
+  ctx.fillStyle = `rgba(255, 0, 0, ${0.75 * pulse})`;
+  ctx.beginPath(); ctx.ellipse(cx - 11, cy + 34, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 11, cy + 34, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
 function drawPlayer() {
   drawF1PlayerCar(Math.round(player.x), Math.round(player.y), player.wheelAngle);
+  if (player.braking) drawBrakeLights(Math.round(player.x), Math.round(player.y));
 }
 
 function drawEnemies() {
@@ -618,9 +645,9 @@ function loop(timestamp) {
     spawnEnemy();
   }
 
-  // Update road stripes (visual only)
+  // Update road stripes — throttle makes road rush past faster / slower
   for (const s of stripes) {
-    s.y += speed * dt;
+    s.y += speed * player.throttle * dt;
     if (s.y > H + STRIPE_GAP) {
       s.y -= (STRIPE_H + STRIPE_GAP) * stripes.length;
     }
@@ -629,7 +656,7 @@ function loop(timestamp) {
   // Update enemies
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
-    e.y += e.speed * dt;
+    e.y += e.speed * player.throttle * dt;
 
     // ── Lane-shift AI (activates progressively after score 200) ──
     if (score > 200 && e.y > 0 && e.y < H - CAR_H) {
@@ -660,9 +687,9 @@ function loop(timestamp) {
     }
   }
 
-  updateEngineSound(speed);
+  updateEngineSound(speed * player.throttle);
 
-  // Player input
+  // Player input — left/right steer
   const moveSpeed = player.speed * dt;
   if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
     player.vx = -moveSpeed;
@@ -671,6 +698,16 @@ function loop(timestamp) {
   } else {
     player.vx *= 0.75;
   }
+
+  // Up = accelerate, Down = brake
+  if (keys['ArrowUp'] || keys['w'] || keys['W']) {
+    player.throttle = Math.min(2.2, player.throttle + 0.05 * dt);
+  } else if (keys['ArrowDown'] || keys['s'] || keys['S']) {
+    player.throttle = Math.max(0.25, player.throttle - 0.08 * dt);
+  } else {
+    player.throttle += (1.0 - player.throttle) * 0.04 * dt; // drift back to cruise
+  }
+  player.braking = (keys['ArrowDown'] || keys['s'] || keys['S']);
 
   player.x += player.vx;
   player.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, player.x));
@@ -686,8 +723,8 @@ function loop(timestamp) {
     const frontY = player.y + CAR_H / 2 - 26;
     const lx = player.x + CAR_W / 2 - 14;
     const rx = player.x + CAR_W / 2 + 14;
-    skidMarks.push({ x: lx, y: frontY, vy: speed, alpha: 0.65 });
-    skidMarks.push({ x: rx, y: frontY, vy: speed, alpha: 0.65 });
+    skidMarks.push({ x: lx, y: frontY, vy: speed * player.throttle, alpha: 0.65 });
+    skidMarks.push({ x: rx, y: frontY, vy: speed * player.throttle, alpha: 0.65 });
   }
 
   // Scroll & fade marks — vy matches road speed so marks stay on the tarmac
