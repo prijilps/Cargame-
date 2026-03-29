@@ -375,8 +375,8 @@ function drawCar(x, y, w, h, colors, isPlayer, wheelAngle) {
 
 function drawSkidMarks() {
   for (const m of skidMarks) {
-    ctx.fillStyle = `rgba(20, 15, 5, ${m.alpha})`;
-    ctx.fillRect(m.x - 2, m.y - 4, 4, 8);
+    ctx.fillStyle = `rgba(15, 10, 5, ${m.alpha})`;
+    ctx.fillRect(m.x - 1.5, m.y - 5, 3, 10);  // narrow centered streak under tire
   }
 }
 
@@ -575,10 +575,11 @@ function checkCollision() {
   ];
 
   for (const e of enemies) {
-    const ex = e.x + 2;
-    const ey = e.y + 6;
-    const ew = CAR_W - 4;
-    const eh = CAR_H - 8;
+    // Enemy body + tires: wheels protrude ~6px on each side (ww=8, offset=2)
+    const ex = e.x - 5;
+    const ey = e.y + 8;
+    const ew = CAR_W + 10;   // 46px — covers body + both tire protrusions
+    const eh = CAR_H - 14;
 
     for (const hb of hitboxes) {
       if (hb.x < ex + ew && hb.x + hb.w > ex &&
@@ -664,12 +665,12 @@ function loop(timestamp) {
   const targetAngle = Math.max(-0.38, Math.min(0.38, player.vx / player.speed * 0.38));
   player.wheelAngle += (targetAngle - player.wheelAngle) * 0.18;
 
-  // Skid marks at rear wheels when turning
-  // Rear tires are at cx ± 17, cy + 27 in F1 car local space
+  // Drag marks under front tires while turning
+  // Front tires are at cx ± 14, cy - 26 in F1 car local space
   if (Math.abs(player.vx) > 1.4 && frameCount % 2 === 0) {
-    const rearY = player.y + CAR_H / 2 + 27;
-    skidMarks.push({ x: player.x + CAR_W / 2 - 17, y: rearY, alpha: 0.55 });
-    skidMarks.push({ x: player.x + CAR_W / 2 + 17, y: rearY, alpha: 0.55 });
+    const frontY = player.y + CAR_H / 2 - 26;
+    skidMarks.push({ x: player.x + CAR_W / 2 - 14, y: frontY, alpha: 0.6 });
+    skidMarks.push({ x: player.x + CAR_W / 2 + 14, y: frontY, alpha: 0.6 });
   }
 
   // Fade & cull skid marks
