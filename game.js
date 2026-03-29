@@ -283,11 +283,10 @@ function startGame() {
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
-      // Each rival's own racing pace (world speed).
-      // Range 0.7–1.5× base: fast rivals overtake at cruise, slow ones fall behind.
-      worldSpeed: speed * (0.7 + Math.random() * 0.8),
+      worldSpeed:     speed * (0.7 + Math.random() * 0.8),
+      effectiveSpeed: speed * (0.7 + Math.random() * 0.8), // throttled speed this frame
       wheelAngle: 0, passed: false,
-      shiftCooldown: 80 + Math.random() * 120,
+      shiftCooldown: 60 + Math.random() * 80,
     });
   });
 
@@ -736,43 +735,89 @@ function loop(timestamp) {
     return;
   }
 
-  // Update enemies — opponents move independently of player throttle.
-  // Their on-screen speed = their own speed PLUS the extra speed from player throttle.
-  // When player accelerates, slower rivals fall behind; when braking, faster ones pass.
-  for (let i = enemies.length - 1; i >= 0; i--) {
+  // ── Rival AI ─────────────────────────────────────────────────────────────
+  for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
-    // Screen movement = player road speed − rival world speed
-    // +ve → rival drifts down (player overtakes)
-    // −ve → rival moves up (rival overtakes — happens when braking or rival is faster)
-    e.y += (speed * player.throttle - e.worldSpeed) * dt;
 
-    // ── Lane-shift AI (activates progressively after score 200) ──
-    if (score > 200 && e.y > 0 && e.y < H - CAR_H) {
-      e.shiftCooldown -= dt;
-      if (e.shiftCooldown <= 0) {
-        const others = [0, 1, 2].filter(l => l !== e.lane);
-        e.lane   = others[Math.floor(Math.random() * 2)];
-        e.targetX = laneX(e.lane);
-        // Gets more aggressive with score
-        const aggression = Math.min(score / 800, 1);
-        e.shiftCooldown = Math.max(30, 110 - aggression * 70) + Math.random() * 50;
+    // 1. Look for a rival directly ahead in the same path (blocking zone)
+    let minGap = Infinity;
+    let blocked = false;
+    for (let j = 0; j < enemies.length; j++) {
+      if (j === i) continue;
+      const o = enemies[j];
+      const lateralClose = Math.abs(o.x - e.x) < CAR_W + 10;
+      const ahead        = o.y < e.y;                  // higher on screen = further ahead
+      const gap          = e.y - o.y;
+      if (lateralClose && ahead && gap < 140) {
+        blocked = true;
+        minGap  = Math.min(minGap, gap);
       }
-      // Slide smoothly toward target lane
-      const dx   = e.targetX - e.x;
-      const step = Math.min(Math.abs(dx), (2 + score * 0.003) * dt) * Math.sign(dx);
-      e.x += step;
-      // Wheel angle follows lateral motion
-      e.wheelAngle += (Math.max(-0.45, Math.min(0.45, dx * 0.07)) - e.wheelAngle) * 0.2;
     }
 
-    // Whoosh when rival passes player (overtakes you)
+    // 2. Speed control — brake when blocked, recover when clear
+    if (blocked) {
+      const targetSpeed = e.worldSpeed * Math.max(0.1, (minGap - CAR_H) / 70);
+      e.effectiveSpeed  = Math.max(0, e.effectiveSpeed - 0.15 * dt);
+      e.effectiveSpeed  = Math.max(e.effectiveSpeed, targetSpeed);
+    } else {
+      // Accelerate back — slight boost when pulling clear (slingshot)
+      e.effectiveSpeed = Math.min(e.worldSpeed * 1.08, e.effectiveSpeed + 0.12 * dt);
+    }
+
+    // 3. Overtake maneuver — change lane when blocked and gap is tight
+    e.shiftCooldown -= dt;
+    if (blocked && minGap < 100 && e.shiftCooldown <= 0) {
+      const freeLanes = [0, 1, 2].filter(lane => {
+        if (lane === e.lane) return false;
+        // Lane is free if no other rival is close at this y-position
+        return !enemies.some((o, j) => j !== i &&
+          Math.abs(laneX(lane) - o.x) < LANE_WIDTH * 0.55 &&
+          Math.abs(o.y - e.y) < 110);
+      });
+      if (freeLanes.length > 0) {
+        e.lane      = freeLanes[Math.floor(Math.random() * freeLanes.length)];
+        e.targetX   = laneX(e.lane);
+        e.shiftCooldown = 35 + Math.random() * 45;
+      } else {
+        e.shiftCooldown = 20; // retry soon
+      }
+    }
+
+    // 4. Lateral slide toward target lane
+    const dx   = e.targetX - e.x;
+    const step = Math.min(Math.abs(dx), 3.5 * dt) * Math.sign(dx);
+    e.x += step;
+    e.wheelAngle += (Math.max(-0.48, Math.min(0.48, dx * 0.08)) - e.wheelAngle) * 0.22;
+
+    // 5. Move along track — screen speed = player road − rival world speed
+    e.y += (speed * player.throttle - e.effectiveSpeed) * dt;
+
+    // 6. Whoosh when rival passes player
     if (!e.passed && e.y > player.y + CAR_H) {
       e.passed = true;
       playPassSound();
     }
-    // Remove when fully off screen (top or bottom)
-    if (e.y > H + CAR_H || e.y < -H) {
-      enemies.splice(i, 1);
+    // 7. Remove when off screen
+    if (e.y > H + CAR_H || e.y < -H) enemies.splice(i, 1);
+  }
+
+  // ── Lateral separation — push overlapping rivals apart ────────────────────
+  for (let i = 0; i < enemies.length; i++) {
+    for (let j = i + 1; j < enemies.length; j++) {
+      const a = enemies[i], b = enemies[j];
+      if (Math.abs(b.y - a.y) > CAR_H * 1.4) continue; // too far apart vertically
+      const dx      = b.x - a.x;
+      const overlap = (CAR_W + 8) - Math.abs(dx);
+      if (overlap > 0 && Math.abs(dx) > 0) {
+        const push = overlap * 0.55 * (dx > 0 ? 1 : -1);
+        a.x -= push * 0.5;
+        b.x += push * 0.5;
+        a.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, a.x));
+        b.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, b.x));
+        // Update target lanes to match pushed positions
+        a.targetX = a.x;
+        b.targetX = b.x;
+      }
     }
   }
 
