@@ -283,8 +283,9 @@ function startGame() {
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
-      // Varied absolute speeds: some faster, some slower than player
-      speed: speed * (0.4 + Math.random() * 1.2),
+      // Each rival's own racing pace (world speed).
+      // Range 0.7–1.5× base: fast rivals overtake at cruise, slow ones fall behind.
+      worldSpeed: speed * (0.7 + Math.random() * 0.8),
       wheelAngle: 0, passed: false,
       shiftCooldown: 80 + Math.random() * 120,
     });
@@ -740,7 +741,10 @@ function loop(timestamp) {
   // When player accelerates, slower rivals fall behind; when braking, faster ones pass.
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
-    e.y += (e.speed + speed * (player.throttle - 1)) * dt;
+    // Screen movement = player road speed − rival world speed
+    // +ve → rival drifts down (player overtakes)
+    // −ve → rival moves up (rival overtakes — happens when braking or rival is faster)
+    e.y += (speed * player.throttle - e.worldSpeed) * dt;
 
     // ── Lane-shift AI (activates progressively after score 200) ──
     if (score > 200 && e.y > 0 && e.y < H - CAR_H) {
