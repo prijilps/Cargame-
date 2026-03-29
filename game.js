@@ -201,6 +201,10 @@ let victoryFrame   = 0;
 let finalPosition  = 10;
 const confetti     = [];
 
+// Countdown / race-start state
+let countdownStart = 0;
+let playerReady    = false;   // true after first ↑ press
+
 // Road markings
 const stripes = [];
 const STRIPE_H = 40;
@@ -282,19 +286,20 @@ function startGame() {
   grid.forEach(({ lane, gap }, i) => {
     const scheme = F1_SCHEMES[1 + (i % (F1_SCHEMES.length - 1))];
     const x = laneX(lane);
+    // speedMult: some slow starters (0.85), most competitive (1.0-1.2), a couple blazing (1.3+)
+    const speedMult = 0.85 + Math.random() * 0.55;
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
-      speedMult:      0.88 + Math.random() * 0.4,
+      speedMult,
       worldSpeed:     0,
-      effectiveSpeed: 0,
-      distance:       gap,  // head-start distance matching spawn gap
+      effectiveSpeed: 0,          // starts at rest, ramps up after lights out
+      launchDelay:    Math.random() * 0.4,  // 0–0.4s stagger (reaction time)
+      launchProgress: 0,          // 0→1 over ~1.5s after their launch delay
+      distance:       gap,
       wheelAngle: 0, passed: false,
       shiftCooldown: 60 + Math.random() * 80,
     });
-    const _e = enemies[enemies.length - 1];
-    _e.worldSpeed = speed * _e.speedMult;
-    _e.effectiveSpeed = _e.worldSpeed;
   });
 
   // Reset stripes
@@ -306,13 +311,97 @@ function startGame() {
   document.getElementById('game-over-screen').classList.add('hidden');
   document.getElementById('score').textContent = '0';
 
-  state = 'playing';
+  playerReady    = false;
+  countdownStart = performance.now();
+  state = 'countdown';
   startEngineSound();
-  requestAnimationFrame(loop);
+  requestAnimationFrame(countdownLoop);
 }
 
 function laneX(lane) {
   return ROAD_LEFT + lane * LANE_WIDTH + (LANE_WIDTH - CAR_W) / 2;
+}
+
+// ─── Start-light countdown ────────────────────────────────────────────────────
+const LIGHT_INTERVAL = 0.72; // seconds per light
+const LIGHTS_OUT_AT  = 5 * LIGHT_INTERVAL + 0.9; // all out after 5 lights + pause
+
+function drawStartLights(elapsed) {
+  const lit     = Math.min(5, Math.floor(elapsed / LIGHT_INTERVAL));
+  const allOut  = elapsed >= LIGHTS_OUT_AT;
+
+  const cx = W / 2;
+  const cy = 120;
+  const r  = 11;
+  const sp = 30;
+
+  // Panel
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.beginPath();
+  ctx.roundRect(cx - 90, cy - 28, 180, 56, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  for (let i = 0; i < 5; i++) {
+    const x = cx - sp * 2 + i * sp;
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    if (allOut) {
+      ctx.fillStyle = '#1a0000';
+      ctx.shadowBlur = 0;
+    } else if (i < lit) {
+      ctx.fillStyle = '#ff1a00';
+      ctx.shadowColor = '#ff4400';
+      ctx.shadowBlur = 18;
+    } else {
+      ctx.fillStyle = '#2a0000';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  if (allOut) {
+    ctx.fillStyle = '#00ff55';
+    ctx.shadowColor = '#00ff55';
+    ctx.shadowBlur = 20;
+    ctx.font = 'bold 30px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GO!', cx, cy + 50);
+    ctx.shadowBlur = 0;
+  } else if (lit === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GET READY', cx, cy + 42);
+  }
+
+  ctx.restore();
+}
+
+let countdownLastTime = 0;
+function countdownLoop(timestamp) {
+  if (state !== 'countdown') return;
+  const elapsed = (performance.now() - countdownStart) / 1000;
+
+  ctx.clearRect(0, 0, W, H);
+  drawRoad();
+  drawEnemies();
+  drawPlayer();
+  drawStartLights(elapsed);
+
+  if (elapsed >= LIGHTS_OUT_AT + 0.55) {
+    // Lights out — go!
+    state = 'playing';
+    raceStartTime = performance.now();
+    lastTime = timestamp;
+    requestAnimationFrame(loop);
+    return;
+  }
+  requestAnimationFrame(countdownLoop);
 }
 
 function spawnEnemy() {
@@ -750,8 +839,20 @@ function loop(timestamp) {
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
 
-    // 0. Keep worldSpeed in sync as road speed ramps up
+    // 0. Keep worldSpeed in sync. During race-start, ramp effectiveSpeed from 0→worldSpeed
     e.worldSpeed = speed * e.speedMult;
+    if (e.launchProgress < 1) {
+      e.launchDelay -= dt * 0.016; // convert dt units to seconds
+      if (e.launchDelay <= 0) {
+        e.launchProgress = Math.min(1, e.launchProgress + dt * 0.022); // ~1.5s ramp
+        e.effectiveSpeed = e.worldSpeed * e.launchProgress;
+      }
+      // skip blocking/overtake AI during launch phase
+      e.y += (speed * player.throttle - e.effectiveSpeed) * dt;
+      e.distance += e.effectiveSpeed * dt;
+      e.x += (e.targetX - e.x) * 0.1;
+      continue;
+    }
 
     // 1. Look for a rival directly ahead in the same path (blocking zone)
     let minGap = Infinity;
@@ -846,6 +947,11 @@ function loop(timestamp) {
 
   updateEngineSound(speed * player.throttle);
 
+  // Detect first ↑ press to release player from grid
+  if (!playerReady && (keys['ArrowUp'] || keys['w'] || keys['W'])) {
+    playerReady = true;
+  }
+
   // Player input — left/right steer
   const moveSpeed = player.speed * dt;
   if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
@@ -856,15 +962,18 @@ function loop(timestamp) {
     player.vx *= 0.75;
   }
 
-  // Up = accelerate, Down = brake
-  if (keys['ArrowUp'] || keys['w'] || keys['W']) {
+  // Up = accelerate, Down = brake — locked until playerReady
+  if (!playerReady) {
+    player.throttle = 0;
+    player.braking  = false;
+  } else if (keys['ArrowUp'] || keys['w'] || keys['W']) {
     player.throttle = Math.min(2.2, player.throttle + 0.05 * dt);
   } else if (keys['ArrowDown'] || keys['s'] || keys['S']) {
     player.throttle = Math.max(0.25, player.throttle - 0.08 * dt);
   } else {
     player.throttle += (1.0 - player.throttle) * 0.04 * dt; // drift back to cruise
   }
-  player.braking = (keys['ArrowDown'] || keys['s'] || keys['S']);
+  player.braking = playerReady && (keys['ArrowDown'] || keys['s'] || keys['S']);
 
   player.x += player.vx;
   player.x = Math.max(ROAD_LEFT + 2, Math.min(ROAD_RIGHT - CAR_W - 2, player.x));
@@ -905,6 +1014,20 @@ function loop(timestamp) {
   drawEnemies();
   drawPlayer();
   drawScore();
+
+  // "Press ↑" hint while waiting for player launch
+  if (!playerReady) {
+    const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 220);
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 12;
+    ctx.font = 'bold 15px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('PRESS ↑ TO GO!', W / 2, player.y + CAR_H + 22);
+    ctx.restore();
+  }
 
   requestAnimationFrame(loop);
 }
