@@ -625,6 +625,7 @@ function drawPlayer() {
 
 function drawEnemies() {
   for (const e of enemies) {
+    if (e.y < -CAR_H * 2 || e.y > H + CAR_H * 2) continue; // off-screen, skip draw
     drawF1EnemyCar(Math.round(e.x), Math.round(e.y), e.wheelAngle, e.color);
   }
 }
@@ -804,8 +805,9 @@ function loop(timestamp) {
       e.passed = true;
       playPassSound();
     }
-    // 7. Remove when off screen
-    if (e.y > H + CAR_H || e.y < -H) enemies.splice(i, 1);
+    // 7. Remove only if very far off the top (rival far ahead — effectively lapped player)
+    //    Do NOT remove cars that fall off the bottom; they're just behind you in the race
+    if (e.y < -H * 2) enemies.splice(i, 1);
   }
 
   // ── Lateral separation — push overlapping rivals apart ────────────────────
