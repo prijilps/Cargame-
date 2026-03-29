@@ -534,7 +534,6 @@ function drawF1EnemyCar(px, py, wa, colors) {
   const cy = Math.round(py + CAR_H / 2);
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.scale(1, -1);          // flip Y → nose now points downward
   _drawF1Core(colors, wa);
   ctx.restore();
 }
