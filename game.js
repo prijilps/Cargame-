@@ -283,11 +283,15 @@ function startGame() {
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
-      worldSpeed:     speed * (0.7 + Math.random() * 0.8),
-      effectiveSpeed: speed * (0.7 + Math.random() * 0.8), // throttled speed this frame
+      speedMult:      0.88 + Math.random() * 0.4,  // rival pace relative to road speed
+      worldSpeed:     0,   // computed each frame as speed * speedMult
+      effectiveSpeed: 0,   // braked/boosted version of worldSpeed
       wheelAngle: 0, passed: false,
       shiftCooldown: 60 + Math.random() * 80,
     });
+    const _e = enemies[enemies.length - 1];
+    _e.worldSpeed = speed * _e.speedMult;
+    _e.effectiveSpeed = _e.worldSpeed;
   });
 
   // Reset stripes
@@ -739,6 +743,9 @@ function loop(timestamp) {
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
 
+    // 0. Keep worldSpeed in sync as road speed ramps up
+    e.worldSpeed = speed * e.speedMult;
+
     // 1. Look for a rival directly ahead in the same path (blocking zone)
     let minGap = Infinity;
     let blocked = false;
@@ -757,11 +764,11 @@ function loop(timestamp) {
     // 2. Speed control — brake when blocked, recover when clear
     if (blocked) {
       const targetSpeed = e.worldSpeed * Math.max(0.1, (minGap - CAR_H) / 70);
-      e.effectiveSpeed  = Math.max(0, e.effectiveSpeed - 0.15 * dt);
+      e.effectiveSpeed  = Math.max(0, e.effectiveSpeed - e.worldSpeed * 0.04 * dt);
       e.effectiveSpeed  = Math.max(e.effectiveSpeed, targetSpeed);
     } else {
       // Accelerate back — slight boost when pulling clear (slingshot)
-      e.effectiveSpeed = Math.min(e.worldSpeed * 1.08, e.effectiveSpeed + 0.12 * dt);
+      e.effectiveSpeed = Math.min(e.worldSpeed * 1.08, e.effectiveSpeed + e.worldSpeed * 0.035 * dt);
     }
 
     // 3. Overtake maneuver — change lane when blocked and gap is tight
