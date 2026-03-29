@@ -11,21 +11,23 @@
     <canvas id="gameCanvas" width="400" height="600"></canvas>
     <div id="ui-overlay">
       <div id="score-display">Score: <span id="score">0</span></div>
+      <div id="race-hud"><span id="race-pos">P10</span> · <span id="race-time">1:00</span></div>
       <div id="highscore-display">Best: <span id="highscore">0</span></div>
     </div>
     <div id="start-screen" class="screen">
-      <h1>CAR GAME</h1>
-      <p>Dodge traffic and survive as long as you can!</p>
+      <h1>F1 RACE</h1>
+      <p>1-minute sprint — cross the finish line in first!</p>
       <div class="controls-info">
-        <span>&#8592; &#8594; Arrow Keys or A/D to steer</span>
+        <div>&#8592; &#8594; / A D &nbsp;— steer</div>
+        <div>&#8593; / W &nbsp;— accelerate &nbsp;·&nbsp; &#8595; / S &nbsp;— brake</div>
       </div>
-      <button id="start-btn">START GAME</button>
+      <button id="start-btn">START RACE</button>
     </div>
     <div id="game-over-screen" class="screen hidden">
-      <h1>GAME OVER</h1>
-      <p>Score: <span id="final-score">0</span></p>
+      <h1>CRASHED OUT</h1>
+      <p>Position: <span id="final-score">P10</span></p>
       <p id="new-best" class="hidden">New Best!</p>
-      <button id="restart-btn">PLAY AGAIN</button>
+      <button id="restart-btn">TRY AGAIN</button>
     </div>
   </div>
   <script src="game.js"></script>

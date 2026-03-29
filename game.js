@@ -184,8 +184,21 @@ const player = {
   braking: false,
 };
 
-// Skid marks: { x, y, alpha }
+// Skid marks: { x, y, vy, alpha }
 const skidMarks = [];
+
+// Race state
+const RACE_DURATION   = 60;   // seconds
+const TOTAL_OPPONENTS = 9;
+let raceStartTime  = 0;
+let raceTimeLeft   = RACE_DURATION;
+let racePosition   = 10;
+let finishLineY    = -9999;   // screen Y of the finish line
+let finishActive   = false;
+let raceOver       = false;
+let victoryFrame   = 0;
+let finalPosition  = 10;
+const confetti     = [];
 
 // Road markings
 const stripes = [];
@@ -227,6 +240,14 @@ canvas.addEventListener('touchend', () => {
 document.getElementById('start-btn').addEventListener('click', startGame);
 document.getElementById('restart-btn').addEventListener('click', startGame);
 
+// Restart from victory screen on any key or tap
+document.addEventListener('keydown', e => {
+  if (state === 'victory' && e.key !== 'F5') startGame();
+});
+canvas.addEventListener('click', () => {
+  if (state === 'victory') startGame();
+});
+
 function startGame() {
   score = 0;
   speed = 3;
@@ -234,11 +255,40 @@ function startGame() {
   spawnInterval = 90;
   enemies.length = 0;
   skidMarks.length = 0;
+  confetti.length = 0;
   player.x = W / 2 - CAR_W / 2;
   player.vx = 0;
   player.wheelAngle = 0;
   player.throttle = 1.0;
   player.braking = false;
+
+  // Race reset
+  raceStartTime = performance.now();
+  raceTimeLeft  = RACE_DURATION;
+  racePosition  = 10;
+  finishLineY   = -9999;
+  finishActive  = false;
+  raceOver      = false;
+  victoryFrame  = 0;
+
+  // Spawn 9 opponents at staggered positions ahead of player
+  const grid = [
+    { lane: 1, gap: 90 },  { lane: 0, gap: 90 },  { lane: 2, gap: 90 },
+    { lane: 1, gap: 190 }, { lane: 0, gap: 190 }, { lane: 2, gap: 190 },
+    { lane: 1, gap: 290 }, { lane: 0, gap: 290 }, { lane: 2, gap: 290 },
+  ];
+  grid.forEach(({ lane, gap }, i) => {
+    const scheme = F1_SCHEMES[1 + (i % (F1_SCHEMES.length - 1))];
+    const x = laneX(lane);
+    enemies.push({
+      x, y: player.y - gap, targetX: x, lane,
+      color: scheme,
+      // Varied absolute speeds: some faster, some slower than player
+      speed: speed * (0.4 + Math.random() * 1.2),
+      wheelAngle: 0, passed: false,
+      shiftCooldown: 80 + Math.random() * 120,
+    });
+  });
 
   // Reset stripes
   for (let i = 0; i < stripes.length; i++) {
@@ -620,7 +670,7 @@ function gameOver() {
     highscore = score;
     localStorage.setItem('cg_hs', highscore);
   }
-  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-score').textContent = `P${racePosition}`;
   document.getElementById('new-best').classList.toggle('hidden', !newBest);
   document.getElementById('game-over-screen').classList.remove('hidden');
 }
@@ -640,10 +690,7 @@ function loop(timestamp) {
   speed = 3 + score * 0.005;
   spawnInterval = Math.max(35, 90 - score * 0.1);
 
-  // Spawn enemies
-  if (frameCount % Math.round(spawnInterval) === 0) {
-    spawnEnemy();
-  }
+  // No auto-spawn — fixed 9-car field for the race
 
   // Update road stripes — throttle makes road rush past faster / slower
   for (const s of stripes) {
@@ -653,10 +700,47 @@ function loop(timestamp) {
     }
   }
 
-  // Update enemies
+  // Race clock & finish line
+  raceTimeLeft = Math.max(0, RACE_DURATION - (performance.now() - raceStartTime) / 1000);
+  const secs = Math.ceil(raceTimeLeft);
+  document.getElementById('race-time').textContent =
+    `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+
+  // Spawn finish line 10 s before time runs out
+  if (!finishActive && raceTimeLeft <= 10) {
+    finishActive = true;
+    finishLineY  = -80;  // just above screen top
+  }
+  if (finishActive) {
+    finishLineY += speed * player.throttle * dt;
+    // Player crossed finish line
+    if (!raceOver && finishLineY > player.y + CAR_H / 2) {
+      raceOver = true;
+      finalPosition = racePosition;
+      stopEngineSound();
+      spawnConfetti();
+      state = 'victory';
+      requestAnimationFrame(victoryLoop);
+      return;
+    }
+  }
+  // Time ran out without crossing — finish at current position
+  if (!raceOver && raceTimeLeft <= 0) {
+    raceOver = true;
+    finalPosition = racePosition;
+    stopEngineSound();
+    spawnConfetti();
+    state = 'victory';
+    requestAnimationFrame(victoryLoop);
+    return;
+  }
+
+  // Update enemies — opponents move independently of player throttle.
+  // Their on-screen speed = their own speed PLUS the extra speed from player throttle.
+  // When player accelerates, slower rivals fall behind; when braking, faster ones pass.
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
-    e.y += e.speed * player.throttle * dt;
+    e.y += (e.speed + speed * (player.throttle - 1)) * dt;
 
     // ── Lane-shift AI (activates progressively after score 200) ──
     if (score > 200 && e.y > 0 && e.y < H - CAR_H) {
@@ -677,15 +761,21 @@ function loop(timestamp) {
       e.wheelAngle += (Math.max(-0.45, Math.min(0.45, dx * 0.07)) - e.wheelAngle) * 0.2;
     }
 
-    // Whoosh when enemy passes player
+    // Whoosh when rival passes player (overtakes you)
     if (!e.passed && e.y > player.y + CAR_H) {
       e.passed = true;
       playPassSound();
     }
-    if (e.y > H + CAR_H) {
+    // Remove when fully off screen (top or bottom)
+    if (e.y > H + CAR_H || e.y < -H) {
       enemies.splice(i, 1);
     }
   }
+
+  // Race position = 1 + number of rivals still ahead of player
+  racePosition = 1 + enemies.filter(e => e.y < player.y).length;
+  racePosition = Math.max(1, Math.min(10, racePosition));
+  document.getElementById('race-pos').textContent = `P${racePosition}`;
 
   updateEngineSound(speed * player.throttle);
 
@@ -743,6 +833,7 @@ function loop(timestamp) {
   // Draw
   ctx.clearRect(0, 0, W, H);
   drawRoad();
+  if (finishActive) drawFinishLine(finishLineY);
   drawSkidMarks();
   drawEnemies();
   drawPlayer();
@@ -751,7 +842,163 @@ function loop(timestamp) {
   requestAnimationFrame(loop);
 }
 
-// Initial draw of start screen background
+// ── Victory loop ─────────────────────────────────────────────────────────────
+function victoryLoop() {
+  if (state !== 'victory') return;
+  victoryFrame++;
+  ctx.clearRect(0, 0, W, H);
+  drawRoad();
+  drawVictoryScene();
+  requestAnimationFrame(victoryLoop);
+}
+
+// ── Finish line ───────────────────────────────────────────────────────────────
+function drawFinishLine(fy) {
+  const sq = 18;
+  const cols = Math.floor((ROAD_RIGHT - ROAD_LEFT) / sq);
+  const rows = 3;
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      ctx.fillStyle = (c + r) % 2 === 0 ? '#ffffff' : '#000000';
+      ctx.fillRect(ROAD_LEFT + c * sq, fy + r * sq - sq * rows, sq, sq);
+    }
+  }
+  // Glow
+  ctx.save();
+  ctx.shadowColor = '#ffffff';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ROAD_LEFT, fy - sq * rows, ROAD_RIGHT - ROAD_LEFT, sq * rows);
+  ctx.restore();
+}
+
+// ── Confetti ──────────────────────────────────────────────────────────────────
+function spawnConfetti() {
+  const colors = ['#FFD700','#ff4444','#00d4ff','#44ff88','#ff88ff','#ffffff'];
+  for (let i = 0; i < 100; i++) {
+    confetti.push({
+      x: Math.random() * W, y: -10 - Math.random() * H * 0.5,
+      vx: (Math.random() - 0.5) * 2.5,
+      vy: 1.5 + Math.random() * 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      w: 6 + Math.random() * 6, h: 3 + Math.random() * 4,
+      angle: Math.random() * Math.PI,
+      va: (Math.random() - 0.5) * 0.18,
+    });
+  }
+}
+
+// ── Trophy ────────────────────────────────────────────────────────────────────
+function drawTrophy(x, y) {
+  const bounce = Math.sin(victoryFrame * 0.05) * 7;
+  ctx.save();
+  ctx.translate(x, y + bounce);
+
+  // Glow
+  ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 30;
+
+  // Cup body
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.moveTo(-30, -50); ctx.lineTo(30, -50);
+  ctx.lineTo(22, 5);    ctx.lineTo(10, 5);
+  ctx.lineTo(10, 18);   ctx.lineTo(22, 18);
+  ctx.lineTo(22, 28);   ctx.lineTo(-22, 28);
+  ctx.lineTo(-22, 18);  ctx.lineTo(-10, 18);
+  ctx.lineTo(-10, 5);   ctx.lineTo(-22, 5);
+  ctx.closePath(); ctx.fill();
+
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,220,0.35)';
+  ctx.beginPath();
+  ctx.moveTo(-18, -48); ctx.lineTo(-5, -48); ctx.lineTo(-10, 0); ctx.lineTo(-22, 0);
+  ctx.closePath(); ctx.fill();
+
+  // Handles
+  ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 5; ctx.shadowBlur = 20;
+  ctx.beginPath(); ctx.arc(-38, -22, 14, Math.PI * 0.6, Math.PI * 1.4, false); ctx.stroke();
+  ctx.beginPath(); ctx.arc( 38, -22, 14, Math.PI * 1.6, Math.PI * 0.4, false); ctx.stroke();
+
+  // Star on cup
+  ctx.fillStyle = '#fff7aa'; ctx.shadowBlur = 0;
+  ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('★', 0, -22);
+
+  ctx.restore();
+}
+
+// ── Waving checkered flag ─────────────────────────────────────────────────────
+function drawWavingFlag(x, y) {
+  ctx.save(); ctx.translate(x, y);
+
+  // Pole
+  ctx.strokeStyle = '#aaaaaa'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -90); ctx.stroke();
+
+  // Waving flag (4×3 checker squares)
+  const sqW = 13, sqH = 12, cols = 4, rows = 3;
+  for (let c = 0; c < cols; c++) {
+    const wave = Math.sin(c * 1.1 + victoryFrame * 0.1) * 5;
+    for (let r = 0; r < rows; r++) {
+      ctx.fillStyle = (c + r) % 2 === 0 ? '#ffffff' : '#000000';
+      ctx.fillRect(c * sqW, -90 + r * sqH + wave, sqW, sqH);
+    }
+  }
+  ctx.restore();
+}
+
+// ── Full victory scene ────────────────────────────────────────────────────────
+function drawVictoryScene() {
+  // Update & draw confetti
+  ctx.save();
+  for (const p of confetti) {
+    p.x += p.vx; p.y += p.vy; p.angle += p.va;
+    if (p.y > H + 20) { p.y = -10; p.x = Math.random() * W; }
+    ctx.save();
+    ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Dark panel
+  ctx.fillStyle = 'rgba(5, 8, 20, 0.82)';
+  ctx.beginPath(); ctx.roundRect(W / 2 - 145, H / 2 - 165, 290, 310, 18); ctx.fill();
+
+  // Gold border
+  ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2;
+  ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.roundRect(W / 2 - 145, H / 2 - 165, 290, 310, 18); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Trophy + flag
+  drawTrophy(W / 2 - 55, H / 2 - 70);
+  drawWavingFlag(W / 2 + 60, H / 2 - 40);
+
+  // Position banner
+  const posText  = finalPosition === 1 ? 'RACE WINNER!' : `FINISHED P${finalPosition}`;
+  const posColor = finalPosition === 1 ? '#FFD700' : '#ffffff';
+  ctx.fillStyle = posColor;
+  ctx.shadowColor = posColor; ctx.shadowBlur = 16;
+  ctx.font = `bold ${finalPosition === 1 ? 30 : 24}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(posText, W / 2, H / 2 + 80);
+  ctx.shadowBlur = 0;
+
+  // Sub text
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '15px sans-serif';
+  ctx.fillText(finalPosition === 1 ? '🏆 Podium Finish!' : 'Back on track!', W / 2, H / 2 + 108);
+
+  // Replay button hint
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '13px sans-serif';
+  ctx.fillText('Tap / press any key to race again', W / 2, H / 2 + 138);
+}
+
+// ── Initial draw of start screen background ───────────────────────────────────
 (function initDraw() {
   ctx.clearRect(0, 0, W, H);
   drawRoad();

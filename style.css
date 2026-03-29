@@ -51,6 +51,17 @@ body {
   letter-spacing: 0.5px;
 }
 
+#race-hud {
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffd700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
 .screen {
   position: absolute;
   inset: 0;
