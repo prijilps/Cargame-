@@ -223,22 +223,35 @@ document.addEventListener('keydown', e => { keys[e.key] = true; });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 
 // Touch / swipe support
-let touchStartX = null;
+let touchStartX = null, touchStartY = null;
 canvas.addEventListener('touchstart', e => {
   touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  keys['ArrowUp'] = true;   // any touch = accelerate / launch
   e.preventDefault();
 }, { passive: false });
 canvas.addEventListener('touchmove', e => {
   if (touchStartX === null) return;
   const dx = e.touches[0].clientX - touchStartX;
-  if (dx > 10) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
-  else if (dx < -10) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
+  const dy = e.touches[0].clientY - touchStartY;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    // Horizontal dominant → steer
+    keys['ArrowLeft']  = dx < -12;
+    keys['ArrowRight'] = dx >  12;
+    keys['ArrowUp']    = true;
+    keys['ArrowDown']  = false;
+  } else {
+    // Vertical dominant → throttle / brake
+    keys['ArrowLeft']  = false;
+    keys['ArrowRight'] = false;
+    keys['ArrowDown']  = dy > 20;
+    keys['ArrowUp']    = dy <= 20;
+  }
   e.preventDefault();
 }, { passive: false });
 canvas.addEventListener('touchend', () => {
-  keys['ArrowLeft'] = false;
-  keys['ArrowRight'] = false;
-  touchStartX = null;
+  keys['ArrowLeft'] = keys['ArrowRight'] = keys['ArrowUp'] = keys['ArrowDown'] = false;
+  touchStartX = touchStartY = null;
 });
 
 // Buttons
