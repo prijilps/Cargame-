@@ -175,8 +175,8 @@ document.getElementById('highscore').textContent = highscore;
 
 // Player
 const player = {
-  x: W / 2 - CAR_W / 2,
-  y: H - 120,
+    x: W / 2 - CAR_W / 2,
+    y: H - 70,
   vx: 0,
   speed: 4.5,
   wheelAngle: 0,
@@ -274,7 +274,8 @@ function startGame() {
   enemies.length = 0;
   skidMarks.length = 0;
   confetti.length = 0;
-  player.x = W / 2 - CAR_W / 2;
+    player.x = W / 2 - CAR_W / 2;
+    player.y = H - 70;
   player.vx = 0;
   player.wheelAngle = 0;
   player.throttle = 1.0;
@@ -299,8 +300,8 @@ function startGame() {
   grid.forEach(({ lane, gap }, i) => {
     const scheme = F1_SCHEMES[1 + (i % (F1_SCHEMES.length - 1))];
     const x = laneX(lane);
-    // speedMult: some slow starters (0.85), most competitive (1.0-1.2), a couple blazing (1.3+)
-    const speedMult = 0.85 + Math.random() * 0.55;
+    // speedMult: all rivals are fast and competitive (1.25–1.75)
+    const speedMult = 1.25 + Math.random() * 0.5;
     enemies.push({
       x, y: player.y - gap, targetX: x, lane,
       color: scheme,
@@ -911,17 +912,45 @@ function loop(timestamp) {
       }
     }
 
-    // 4. Lateral slide toward target lane
+    // 5. Move along track — screen speed = player road − rival world speed
+    // --- Prevent AI from ever hitting player from behind ---
+    let safeEffectiveSpeed = e.effectiveSpeed;
+    const playerAhead = player.y < e.y;
+    const sameLane = Math.abs(e.x - player.x) < LANE_WIDTH * 0.55;
+    const verticalGap = e.y - player.y;
+    let behindPlayer = false;
+    if (playerAhead && sameLane && verticalGap < CAR_H * 1.2 && verticalGap > 0) {
+      // If approaching player from behind in same lane, always shift lane if possible
+      behindPlayer = true;
+      const freeLanes = [0, 1, 2].filter(lane => {
+        if (lane === e.lane) return false;
+        // Lane is free if no other rival or player is close at this y-position
+        const hasRival = enemies.some((o, j) => j !== i && Math.abs(laneX(lane) - o.x) < LANE_WIDTH * 0.55 && Math.abs(o.y - e.y) < 110);
+        const hasPlayer = Math.abs(laneX(lane) - player.x) < LANE_WIDTH * 0.55 && Math.abs(player.y - e.y) < 110;
+        return !hasRival && !hasPlayer;
+      });
+      if (freeLanes.length > 0) {
+        // Always shift immediately to a free lane
+        e.lane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
+        e.targetX = laneX(e.lane);
+        // Reset shiftCooldown to avoid rapid oscillation
+        e.shiftCooldown = 35 + Math.random() * 45;
+      } else {
+        // No lane available, slow down to avoid collision
+        safeEffectiveSpeed = Math.min(safeEffectiveSpeed, (verticalGap - CAR_H * 0.7) * 0.7);
+      }
+    }
+
+    // 4. Lateral slide toward target lane — make it faster when behind player
     const dx   = e.targetX - e.x;
-    const step = Math.min(Math.abs(dx), 3.5 * dt) * Math.sign(dx);
+    const maxLateralSpeed = behindPlayer ? 7.5 * dt : 3.5 * dt;  // 2x faster escape when behind player
+    const step = Math.min(Math.abs(dx), maxLateralSpeed) * Math.sign(dx);
     e.x += step;
     e.wheelAngle += (Math.max(-0.48, Math.min(0.48, dx * 0.08)) - e.wheelAngle) * 0.22;
-
-    // 5. Move along track — screen speed = player road − rival world speed
-    e.y += (speed * player.throttle - e.effectiveSpeed) * dt;
+    e.y += (speed * player.throttle - safeEffectiveSpeed) * dt;
 
     // Accumulate rival's absolute race distance
-    e.distance += e.effectiveSpeed * dt;
+    e.distance += safeEffectiveSpeed * dt;
 
     // 6. Whoosh when rival passes player
     if (!e.passed && e.y > player.y + CAR_H) {

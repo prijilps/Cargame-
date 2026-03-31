@@ -13,13 +13,20 @@
       <div id="score-display">Score: <span id="score">0</span></div>
       <div id="race-hud"><span id="race-pos">P10</span> · <span id="race-time">1:00</span></div>
       <div id="highscore-display">Best: <span id="highscore">0</span></div>
+      <div id="boost-indicator">
+        <div id="boost-label">BOOST</div>
+        <div id="boost-bar-container">
+          <div id="boost-bar"></div>
+        </div>
+      </div>
     </div>
     <div id="start-screen" class="screen">
       <h1>F1 RACE</h1>
       <p>1-minute sprint — cross the finish line in first!</p>
       <div class="controls-info">
-        <div>&#8592; &#8594; / A D &nbsp;— steer</div>
+        <div>&#8592; &#8594; / A D &nbsp;— steer (smooth lanes)</div>
         <div>&#8593; / W &nbsp;— accelerate &nbsp;·&nbsp; &#8595; / S &nbsp;— brake</div>
+        <div style="margin-top:6px;color:#ffff00">↑ (10s) NITRO BOOST — recharges as you race!</div>
         <div style="margin-top:6px;color:#aaa">Mobile: tap &amp; hold = go &nbsp;·&nbsp; swipe &#8592;&#8594; = steer &nbsp;·&nbsp; swipe &#8595; = brake</div>
       </div>
       <button id="start-btn">START RACE</button>
