@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Car Game</title>
+  <title>F1 Race — 3 Levels</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,21 +13,21 @@
       <div id="score-display">Score: <span id="score">0</span></div>
       <div id="race-hud"><span id="race-pos">P10</span> · <span id="race-time">1:00</span></div>
       <div id="highscore-display">Best: <span id="highscore">0</span></div>
-      <div id="boost-indicator">
-        <div id="boost-label">BOOST</div>
-        <div id="boost-bar-container">
-          <div id="boost-bar"></div>
-        </div>
-      </div>
     </div>
     <div id="start-screen" class="screen">
       <h1>F1 RACE</h1>
-      <p>1-minute sprint — cross the finish line in first!</p>
+      <div class="level-pills">
+        <span class="pill pill-1">☀️ Sunny</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill pill-2">🌅 Sunset</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill pill-3">🌙 Night</span>
+      </div>
+      <p>3 levels · Finish top 3 to advance · Rivals get faster!</p>
       <div class="controls-info">
-        <div>&#8592; &#8594; / A D &nbsp;— steer (smooth lanes)</div>
-        <div>&#8593; / W &nbsp;— accelerate &nbsp;·&nbsp; &#8595; / S &nbsp;— brake</div>
-        <div style="margin-top:6px;color:#ffff00">↑ (10s) NITRO BOOST — recharges as you race!</div>
-        <div style="margin-top:6px;color:#aaa">Mobile: tap &amp; hold = go &nbsp;·&nbsp; swipe &#8592;&#8594; = steer &nbsp;·&nbsp; swipe &#8595; = brake</div>
+        <div>&#8592; &#8594; / A D — steer &nbsp;·&nbsp; &#8593; / W — accelerate &nbsp;·&nbsp; &#8595; / S — brake</div>
+        <div style="margin-top:5px;color:#aaa;font-size:12px">Mobile: tap &amp; hold = go · swipe ← → = steer · swipe ↓ = brake</div>
+        <div style="margin-top:5px;color:#00ffcc;font-size:12px">Slipstream rivals closely to get a speed boost!</div>
       </div>
       <button id="start-btn">START RACE</button>
     </div>
